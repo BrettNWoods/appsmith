@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -ex
 # ip is a reserved keyword for tracking events in Mixpanel. Instead of showing the ip as is Mixpanel provides derived properties.
 # As we want derived props alongwith the ip address we are sharing the ip address in separate keys
 # https://help.mixpanel.com/hc/en-us/articles/360001355266-Event-Properties
@@ -38,6 +38,16 @@ function setup_backend_heap_arg() {
       export APPSMITH_JAVA_HEAP_ARG="-Xmx${maximum_heap}m"
     fi
 }
+
+# Mount a NFS if the NFS env variables are set
+if [[ ! -z ${NFS_IP} && ! -z ${NFS_NAME} ]]; then
+    echo "Mounting NFS"
+    mkdir -p /appsmith-stacks
+    echo "Mount file share ${NFS_IP}:/${NFS_NAME} to /appsmith-stacks"
+    mount -o nolock ${NFS_IP}:/${NFS_NAME} /appsmith-stacks
+    echo "Mounting result: $?"
+    export HOSTNAME=cloudrun
+fi
 
 init_env_file() {
   CONF_PATH="/appsmith-stacks/configuration"
@@ -123,17 +133,6 @@ unset_unused_variables() {
     unset APPSMITH_RECAPTCHA_SITE_KEY # If this field is empty is might cause application crash
     unset APPSMITH_RECAPTCHA_SECRET_KEY
     unset APPSMITH_RECAPTCHA_ENABLED
-  fi
-}
-
-mount_nfs() {
-  # Mount a NFS if the NFS env variables are set
-  if [[ ! -z ${NFS_IP} && ! -z ${NFS_NAME} ]]; then
-      echo "Mounting NFS"
-      apt-get update && apt-get install -y nfs-common nfs-kernel-server
-      echo "Mount file share ${NFS_IP}:/${NFS_NAME} to ${stacks_path}"
-      mount -o nolock ${NFS_IP}:/${NFS_NAME} ${stacks_path}
-      echo "Mounting result: $?"
   fi
 }
 
@@ -408,7 +407,6 @@ init_loading_pages(){
 # Main Section
 init_loading_pages
 init_env_file
-mount_nfs
 setup_proxy_variables
 unset_unused_variables
 
